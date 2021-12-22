@@ -3,10 +3,11 @@ import pandas as pd
 from boruta import BorutaPy
 from sklearn.model_selection import  train_test_split
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 from sklearn.svm import SVC
 from fcmeans import FCM
+from utilities import mape
 from sklearn.cluster import KMeans
-from sklearn.ensemble import RandomForestRegressor
 from sklearn import metrics
 from kneed import KneeLocator
 import math
@@ -41,7 +42,7 @@ def borutaGreenBlue(x,y):
 
     green_area = x.columns[boruta.support_].to_list()
     blue_area = x.columns[boruta.support_weak_].to_list()
-    return 'features in the green area:' + str(green_area) + '\nfeatures in the blue area:' + str(blue_area)
+    return green_area, blue_area
 
 def doFCM(x,numOfClusters):
     numpy_array = x.to_numpy()
@@ -75,10 +76,10 @@ def predict(trainX, trainY, testX, numberOfClusters):
         res = doFCM(addedX,numberOfClusters)
         #print(res)
         trainClusterX, trainClusterY = getCluster(res[-1],trainX, trainY, res[:-1])
-    
-        regressor = RandomForestRegressor(n_estimators = 1000, random_state = 50)
-        model = regressor.fit(trainClusterX, trainClusterY)
-        regressorPredY = model.predict([testX.iloc[i]])
+
+        randomRegressor = RandomForestRegressor(n_estimators = 1000, random_state = 50)
+        model = randomRegressor.fit(trainClusterX, trainClusterY)
+        randomRegressorPredY = model.predict([testX.iloc[i]])
 
         svm = SVC(kernel='rbf', random_state=10, gamma=0.5, C=10.0)
         model = svm.fit(trainClusterX, trainClusterY)
@@ -88,7 +89,7 @@ def predict(trainX, trainY, testX, numberOfClusters):
         model = svp.fit(trainClusterX, trainClusterY)
         svpPredY = model.predict([testX.iloc[i]])
 
-        finalRes.append((regressorPredY + svmPredY + svpPredY)/3)
+        finalRes.append((randomRegressorPredY + svmPredY + svpPredY)/3)
     return finalRes
 
 #main starts here
@@ -114,6 +115,15 @@ for category in categoricalColumns:
 
 #dividing dataset into x & y
 x, y = getXY(hospitalData, 'time hospital')
+
+reqGreen,reqBlue = borutaGreenBlue(x,y)
+toBeRemovedCategorical = list(categoricalColumns)
+for green in reqGreen:
+  toBeRemovedCategorical.remove(green)
+for blue in reqBlue:
+  toBeRemovedCategorical.remove(blue)
+x = x.drop(toBeRemovedCategorical,axis=1)
+
 trainX, testX, trainY, testY = train_test_split(x, y, test_size=0.2, stratify=y, random_state=0 )
 
 #checking for appropriate K
@@ -135,3 +145,4 @@ mse = metrics.mean_squared_error(testY, predY)
 mae = metrics.mean_absolute_error(testY,predY)
 r2 = metrics.r2_score(testY,predY)
 print("RootMeanSquaredError {}\nMeanAbsoluteError {}\nRSquared {}".format(math.sqrt(mse),mae,r2))
+print("MAPE {}".format(mape(testY,predY)))

@@ -38,18 +38,19 @@ def borutaGreenBlue(x,y):
 
   green_area = x.columns[boruta.support_].to_list()
   blue_area = x.columns[boruta.support_weak_].to_list()
-  return 'features in the green area:' + str(green_area) + '\nfeatures in the blue area:' + str(blue_area)
+  return green_area, blue_area
 
 def doFCM(x,numOfClusters):
   numpy_array = x.to_numpy()
   fcm = FCM(n_clusters=numOfClusters)
   fcm.fit(numpy_array)
-  
+  # print(fcm)
   res = []
 
   for ele in fcm.u:
     tempEle = list(ele)
-    if max(tempEle)<0.65:
+    # print(max(tempEle))
+    if max(tempEle)<0.5:
       res.append(numOfClusters)
     else:
       res.append(tempEle.index(max(tempEle)))
@@ -72,7 +73,7 @@ def predict(trainX, trainY, testX, numberOfClusters):
     
     addedX = trainX.append(testX.iloc[i])
     res = doFCM(addedX,numberOfClusters)
-    #print(res)
+    # print(res)
     trainClusterX, trainClusterY = getCluster(res[-1],trainX, trainY, res[:-1])
     
     regressor = RandomForestRegressor(n_estimators = 1000, random_state = 50)
@@ -101,11 +102,11 @@ hospitalData = readData('./data.xlsx')
 testX = readData('./testData.xlsx')
 
 #dropping unnecessary columns
-hospitalData = hospitalData.drop(['ID','date admission'],axis=1)
-testX = testX.drop(['ID','date admission'],axis=1)
+hospitalData = hospitalData.drop(['ID','date admission','active substance'],axis=1)
+testX = testX.drop(['ID','date admission','active substance'],axis=1)
 
 #labelEncoding all categorical values
-categoricalColumns = ['age','sex','weight','diagnose','sub diagnose','flora','medicamant','active substance']
+categoricalColumns = ['age','sex','weight','diagnose','sub diagnose','flora','medicamant']
 for category in categoricalColumns:
   hospitalData = labelEncoder(hospitalData, category)
 for category in categoricalColumns:
@@ -113,6 +114,15 @@ for category in categoricalColumns:
 
 #dividing dataset into x & y
 x, y = getXY(hospitalData, 'time hospital')
+
+reqGreen,reqBlue = borutaGreenBlue(x,y)
+toBeRemovedCategorical = list(categoricalColumns)
+for green in reqGreen:
+  toBeRemovedCategorical.remove(green)
+for blue in reqBlue:
+  toBeRemovedCategorical.remove(blue)
+x = x.drop(toBeRemovedCategorical,axis=1)
+testX = testX.drop(toBeRemovedCategorical,axis=1)
 
 #checking for appropriate K
 wcss=[]

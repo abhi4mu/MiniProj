@@ -1,0 +1,4 @@
+104. id, date admission endhuku theesesam
+108. categorical columns
+109. label encoding, manual label encoding endhuku rasam
+118 - 127. k elbow
